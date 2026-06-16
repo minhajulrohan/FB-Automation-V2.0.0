@@ -140,30 +140,18 @@ class AutomationWorker {
   async initBrowser() {
     this.logger.info(`Initializing browser for ${this.account.name}`);
 
-    // ── Device profile resolution ──────────────────────────────────────────
-    // deviceProfile is saved with the account at add-time from the UA generator
+    // ── Mobile Mode: সবসময় Android mobile হিসেবে চলবে ─────────────────────
     const profile = this.account.deviceProfile || {};
-    const deviceType = profile.type || 'windows-chrome';
+    const deviceType = 'android-chrome';
 
-    // Resolve viewport — use saved profile or derive from UA type
-    let viewportW = profile.viewportW || 1920;
-    let viewportH = profile.viewportH || 1080;
-    let platform = profile.platform || 'Win32';
+    // Mobile viewport — iPhone 14 Pro Max সাইজ
+    const viewportW = 390;
+    const viewportH = 844;
+    const platform = 'Linux armv81';
 
-    // Fallback: derive from UA string if deviceProfile not saved (older accounts)
-    if (!this.account.deviceProfile && this.account.userAgent) {
-      const ua = this.account.userAgent;
-      if (ua.includes('iPad')) {
-        viewportW = 1366; viewportH = 768; platform = 'iPad';
-      } else if (ua.includes('Macintosh')) {
-        viewportW = 1440; viewportH = 900; platform = 'MacIntel';
-      } else {
-        viewportW = 1920; viewportH = 1080; platform = 'Win32';
-      }
-    }
-
+    // Mobile Android Chrome User Agent (সবসময় এটা use হবে)
     const accountUserAgent = this.account.userAgent ||
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36';
+      'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36';
 
     this.logger.info(`Device: ${deviceType} | Viewport: ${viewportW}x${viewportH} | Platform: ${platform}`);
     this.logger.info(`UA: ${accountUserAgent.substring(0, 90)}...`);
@@ -237,8 +225,8 @@ class AutomationWorker {
       locale: 'en-US',
       timezoneId: 'America/New_York',
       deviceScaleFactor: 1,
-      isMobile: false,
-      hasTouch: false
+      isMobile: true,
+      hasTouch: true
     };
 
     this.context = await this.browser.newContext(contextOptions);

@@ -62,12 +62,13 @@ class GroupAutomationWorker {
   }
 
   async initBrowser() {
+    // ── Mobile Mode: সবসময় Android mobile হিসেবে চলবে ─────────────────────
     const profile = this.account.deviceProfile || {};
-    const viewportW = profile.viewportW || 1920;
-    const viewportH = profile.viewportH || 1080;
-    const platform = profile.platform || 'Win32';
+    const viewportW = 390;
+    const viewportH = 844;
+    const platform = 'Linux armv81';
     const userAgent = this.account.userAgent ||
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36';
+      'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36';
 
     const launchOptions = {
       headless: this.settings.headless,
@@ -95,6 +96,9 @@ class GroupAutomationWorker {
     this.context = await this.browser.newContext({
       viewport: { width: viewportW, height: viewportH },
       userAgent, locale: 'en-US', timezoneId: 'America/New_York',
+      isMobile: true,
+      hasTouch: true,
+      deviceScaleFactor: 2,
     });
 
     await this.context.addInitScript(() => {

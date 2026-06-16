@@ -8,7 +8,7 @@ class FacebookAutomator {
 
   async verifyLogin() {
     try {
-      await this.page.goto('https://www.facebook.com/', { 
+      await this.page.goto('https://m.facebook.com/', { 
         waitUntil: 'networkidle',
         timeout: 30000 
       });

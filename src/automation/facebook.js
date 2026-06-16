@@ -15,9 +15,7 @@ class FacebookAutomator {
       this.logger.info('Verifying Facebook login...');
 
       // পরিবর্তন: waitUntil 'domcontentloaded' করা হয়েছে এবং timeout বাড়ানো হয়েছে
-      await this.page.goto('https://www.facebook.com/', {
-        waitUntil: 'domcontentloaded',
-        timeout: 60000
+      await this.page.goto('https://m.facebook.com/', {
       });
 
       // একটু অতিরিক্ত সময় দেওয়া যাতে স্ক্রিপ্ট লোড হতে পারে
@@ -29,14 +27,23 @@ class FacebookAutomator {
           '[aria-label="Account"]',
           'div[role="navigation"]',
           'a[href*="/profile.php"]',
-          '[aria-label="Home"]' // অতিরিক্ত একটি সিলেক্টর
+          '[aria-label="Home"]', // Desktop selector
+          // Mobile (m.facebook.com) selectors
+          '#MComposer',
+          '#mbasic_inline_feed_composer',
+          '#bookmarks_jewel',
+          'a[href*="/me/"]'
         ];
 
         for (const selector of navSelectors) {
           if (document.querySelector(selector)) return true;
         }
 
-        // লগইন পেজে নেই কিন্তু প্রোফাইল আইকন পাওয়া যাচ্ছে কিনা দেখা
+        // Mobile: login page এ "Log In" button থাকে, না থাকলে লগইন আছে
+        const loginBtn = document.querySelector('a[href*="login"], input[value="Log In"], button[name="login"]');
+        if (!loginBtn && window.location.href.includes('m.facebook.com')) return true;
+
+        // লগইন পেজে নেই কিন্তু প্রোফাইল আইকন পাওয়া যাচ্ছে কিনা দেখা
         return !!document.querySelector('div[data-testid="Key-Shortcut-Help-Modal"]');
       });
 
@@ -758,7 +765,7 @@ class FacebookAutomator {
       this.logger.info('📜 Scrolling home feed for natural behavior...');
 
       // Go to home page
-      await this.page.goto('https://www.facebook.com/', {
+      await this.page.goto('https://m.facebook.com/', {
         waitUntil: 'domcontentloaded',
         timeout: 30000
       });
@@ -811,7 +818,7 @@ class FacebookAutomator {
       this.logger.info('🎬 Taking reels break for natural behavior...');
 
       // Navigate to reels
-      const reelsUrl = 'https://www.facebook.com/reel/';
+      const reelsUrl = 'https://m.facebook.com/reel/';
       await this.page.goto(reelsUrl, {
         waitUntil: 'domcontentloaded',
         timeout: 30000
