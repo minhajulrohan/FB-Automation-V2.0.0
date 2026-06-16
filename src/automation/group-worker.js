@@ -64,11 +64,15 @@ class GroupAutomationWorker {
   async initBrowser() {
     // ── Mobile Mode: সবসময় Android mobile হিসেবে চলবে ─────────────────────
     const profile = this.account.deviceProfile || {};
-    const viewportW = 390;
-    const viewportH = 844;
+    // 2nd image (Firefox) এর মতো compact mobile window
+    // Firefox window: ~420px wide content area — titlebar+addressbar ~140px overhead
+    // তাই window-size = 420 × (900+140) = 420×1040
+    const viewportW = 420;   // Firefox mobile content width — exact match
+    const viewportH = 900;   // viewport height (content area)
+    const windowH   = 1040;  // window total height (viewport + browser chrome ~140px)
     const platform = 'Linux armv81';
     const userAgent = this.account.userAgent ||
-      'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36';
+      'Mozilla/5.0 (Linux; Android 13; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.6834.163 Mobile Safari/537.36';
 
     const launchOptions = {
       headless: this.settings.headless,
@@ -76,9 +80,11 @@ class GroupAutomationWorker {
         '--disable-blink-features=AutomationControlled',
         '--no-sandbox', '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        `--window-size=${viewportW},${viewportH}`,
+        `--window-size=${viewportW},${windowH}`,  // OS window size
+        '--window-position=0,0',                    // screen এর top-left কোণে রাখো — clipping বন্ধ
         '--disable-webrtc',
         '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
+        '--force-device-scale-factor=1',
       ]
     };
 
@@ -94,11 +100,11 @@ class GroupAutomationWorker {
 
     this.browser = await chromium.launch(launchOptions);
     this.context = await this.browser.newContext({
-      viewport: { width: viewportW, height: viewportH },
+      viewport: { width: viewportW, height: viewportH },  // content area only
       userAgent, locale: 'en-US', timezoneId: 'America/New_York',
       isMobile: true,
       hasTouch: true,
-      deviceScaleFactor: 2,
+      deviceScaleFactor: 1,  // 1x — no scaling, Firefox mobile style
     });
 
     await this.context.addInitScript(() => {
@@ -170,6 +176,9 @@ class GroupAutomationWorker {
             }
           }
 
+          // ── "New posts" sorting select করো (chronological order) ──
+          await this.selectNewPostsSorting();
+
           // ── Scroll করে নতুন posts load করো ──
           await this.scrollToLoadFeed();
 
@@ -239,6 +248,35 @@ class GroupAutomationWorker {
     } catch (e) { }
   }
 
+  // Group feed এ "New posts" sorting select করো
+  // Image 1 এ দেখানো "Most relevant" dropdown → "New posts" select
+  async selectNewPostsSorting() {
+    this.logger.info('[GROUP] Attempting to select "New posts" sorting...');
+    try {
+      // URL এ ?sorting_setting=CHRONOLOGICAL আছে কিনা দেখো
+      const currentUrl = this.page.url();
+      if (currentUrl.includes('sorting_setting=CHRONOLOGICAL')) {
+        this.logger.info('[GROUP] Already on CHRONOLOGICAL sort, skipping dropdown click.');
+        return;
+      }
+
+      // Method 1: URL এ sorting parameter যোগ করো (সবচেয়ে reliable)
+      const groupUrl = currentUrl.split('?')[0].split('#')[0];
+      const chronoUrl = groupUrl + '?sorting_setting=CHRONOLOGICAL';
+      this.logger.info(`[GROUP] Navigating to chronological URL: ${chronoUrl}`);
+      await this.page.goto(chronoUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await this.sleep(5000);
+
+      const newUrl = this.page.url();
+      this.logger.info(`[GROUP] After sort navigation, URL: ${newUrl}`);
+      this.log('info', `📅 Switched to "New posts" (chronological) feed`);
+
+    } catch (err) {
+      this.logger.error(`[GROUP] selectNewPostsSorting error: ${err.message}`);
+      // Error হলেও continue করো — scroll করবে যা আছে তা নিয়ে
+    }
+  }
+
   // Scroll করে feed posts collect করো
   // Facebook DOM virtualization এর কারণে top এ ফিরলে posts চলে যায়
   // তাই scroll করতে করতেই post URLs collect করি
@@ -246,8 +284,8 @@ class GroupAutomationWorker {
     this.logger.info('[GROUP] Scrolling to collect post URLs...');
     this._collectedPostUrls = new Set(); // scroll এর সময় collect করা URLs
 
-    for (let i = 0; i < 20; i++) {
-      await this.page.evaluate(() => window.scrollBy(0, 700));
+    for (let i = 0; i < 40; i++) {  // 20→40 steps (double)
+      await this.page.evaluate(() => window.scrollBy(0, 1400));  // 700→1400px (double)
       await this.sleep(900 + Math.random() * 600);
 
       // প্রতি step এ visible articles থেকে post URLs collect করো
@@ -273,7 +311,7 @@ class GroupAutomationWorker {
       urls.forEach(u => this._collectedPostUrls.add(u));
 
       if (i % 5 === 4) {
-        this.logger.info(`[GROUP] Scroll step ${i + 1}/20 — collected: ${this._collectedPostUrls.size} post URLs`);
+        this.logger.info(`[GROUP] Scroll step ${i + 1}/40 — collected: ${this._collectedPostUrls.size} post URLs`);
       }
     }
 
